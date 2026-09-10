@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오늘의 조각들</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  :root{
+    --night:#0a1220;
+    --night-mid:#12203a;
+    --ice:#bfe0ec;
+    --snow:#f8fbfd;
+    --gold:#f0c86e;
+    --accent:#8fc4e8;
+    --accent-dim:#2c4a6e;
+  }
+
+  html,body{ height:100%; }
+
+  body{
+    background:var(--night);
+    color:var(--snow);
+    font-family:'Pretendard','Noto Sans KR',-apple-system,sans-serif;
+    overflow-x:hidden;
+  }
+
+  .bg{
+    position:fixed; inset:0; z-index:0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(143,196,232,0.08), transparent 60%),
+      radial-gradient(ellipse 50% 30% at 90% 10%, rgba(255,180,84,0.08), transparent 60%),
+      radial-gradient(ellipse 40% 25% at 5% 95%, rgba(122,46,51,0.10), transparent 60%),
+      linear-gradient(180deg, var(--night) 0%, var(--night-mid) 60%, #16283f 100%);
+  }
+
+  #particles{ position:fixed; inset:0; width:100%; height:100%; z-index:1; pointer-events:none; }
+
+  main{
+    position:relative; z-index:2;
+    max-width:440px; margin:0 auto;
+    padding:52px clamp(14px,4vw,20px) 72px;
+  }
+
+  header.top{ text-align:center; margin-bottom:26px; }
+  header.top h1{ font-size:clamp(24px,7vw,32px); font-weight:700; letter-spacing:-0.01em; }
+  header.top p{ margin-top:8px; font-size:13px; color:var(--ice); opacity:0.7; }
+
+  .notice{
+    margin:14px auto 0; padding:10px 14px; border-radius:10px;
+    background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
+    font-size:12px; color:var(--ice); opacity:0.9; text-align:center; display:none;
+  }
+  .notice.show{ display:block; }
+
+  .stack{ display:flex; flex-direction:column; gap:12px; }
+  .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  .tile{
+    position:relative;
+    border-radius:18px;
+    padding:18px;
+    border:1px solid rgba(255,255,255,0.07);
+    isolation:isolate;
+  }
+
+  .tile .label{ font-size:14px; font-weight:600; opacity:0.95; }
+  .tile .sub{ font-size:12px; opacity:0.65; margin-top:3px; }
+  .tile .top-note{ font-size:11.5px; opacity:0.68; margin-bottom:10px; }
+
+  #t-weather{ background:linear-gradient(150deg,#12203a,#1c2f4c); display:flex; flex-direction:column; gap:12px; }
+  .wx-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .wx-city{ font-size:13px; opacity:0.78; }
+  .wx-cond{ font-size:13px; opacity:0.88; margin-top:3px; }
+  .wx-icon{ font-size:30px; line-height:1; flex-shrink:0; }
+  .wx-temp{ font-size:clamp(38px,13vw,54px); font-weight:700; line-height:1; }
+  .wx-meta{ display:flex; align-items:center; gap:10px; font-size:11.5px; opacity:0.68; flex-wrap:wrap; }
+  .retry-btn{
+    font-size:11.5px; padding:4px 11px; border-radius:100px;
+    background:rgba(255,255,255,0.14); border:none; color:var(--snow);
+    cursor:pointer; display:none;
+  }
+  .retry-btn.show{ display:inline-block; }
+  .retry-btn:hover{ background:rgba(255,255,255,0.22); }
+
+  #t-outfit{ background:linear-gradient(150deg,#1a2c44,#2a4362); }
+  #t-sunset{ background:linear-gradient(150deg,#3a2440,#5a2e3e); overflow:hidden; }
+  .sunset-visual{ position:relative; height:46px; margin-top:14px; }
+  .sun-arc{ position:absolute; inset:0 4px 0 4px; border:1px dashed rgba(255,255,255,0.3); border-bottom:none; border-radius:50% 50% 0 0 / 100% 100% 0 0; pointer-events:none; }
+  .sun-dot{ position:absolute; width:7px; height:7px; margin:-3.5px; border-radius:50%; background:var(--gold); box-shadow:0 0 10px 2px rgba(240,200,110,0.6); transition:opacity .4s; }
+
+  #t-dust{ background:linear-gradient(150deg,#2a3a2c,#3c5240); }
+  #t-uv{ background:linear-gradient(150deg,#3a2c1c,#5a4326); }
+  #t-rain{ background:linear-gradient(150deg,#16283f, var(--accent-dim)); }
+  #t-dust .label, #t-uv .label, #t-rain .label{ font-size:16px; }
+
+  #t-next-term{ background:linear-gradient(150deg,#1c2c46,#2b3f66); }
+  #t-next-holiday{ background:linear-gradient(150deg,#241a3a,#3a2a54); }
+  #t-next-term .big, #t-next-holiday .big{ font-size:clamp(22px,8vw,30px); font-weight:600; margin-top:2px; }
+
+  #t-year-progress{ background:linear-gradient(150deg,#1c3a34,#28524a); }
+  #t-daylight{ background:linear-gradient(150deg,#3a3320,#5a4d28); }
+  #t-year-progress .label, #t-daylight .label{ font-size:16px; }
+
+  .progress-track{
+    margin-top:10px; height:6px; border-radius:999px;
+    background:rgba(255,255,255,0.14); overflow:hidden;
+  }
+  .progress-fill{
+    height:100%; width:0%; border-radius:999px;
+    background:var(--accent); transition:width .6s ease;
+  }
+
+  footer{ text-align:center; padding:36px 0 0; font-size:12px; color:var(--ice); opacity:0.55; }
+
+  @media (max-width:380px){
+    .row{ gap:9px; }
+    .stack{ gap:9px; }
+    .tile{ padding:15px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="bg"></div>
+<canvas id="particles"></canvas>
+
+<main>
+  <header class="top">
+    <h1>오늘의 조각들</h1>
+    <p id="dateSub">날짜를 불러오는 중…</p>
+    <div class="notice" id="notice"></div>
+  </header>
+
+  <section class="stack">
+
+    <div class="tile" id="t-weather" aria-live="polite">
+      <div class="wx-head">
+        <div>
+          <div class="wx-city" id="wxCity">위치 확인 중…</div>
+          <div class="wx-cond" id="wxCond">–</div>
+        </div>
+        <div class="wx-icon" id="wxIcon"></div>
+      </div>
+      <div class="wx-temp" id="wxTemp">–°</div>
+      <div class="wx-meta"><span id="wxMeta">불러오는 중</span><button class="retry-btn" id="retryBtn">다시 시도</button></div>
+    </div>
+
+    <div class="row">
+      <div class="tile" id="t-outfit">
+        <div class="top-note">오늘의 옷차림</div>
+        <div class="label" id="outfitLabel">–</div>
+        <div class="sub" id="outfitSub"></div>
+      </div>
+      <div class="tile" id="t-sunset">
+        <div class="top-note">일몰</div>
+        <div class="label" id="sunsetLabel">–</div>
+        <div class="sunset-visual" id="sunWrap">
+          <div class="sun-arc"></div>
+          <div class="sun-dot" id="sunDot" style="opacity:0;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="tile" id="t-dust">
+        <div class="top-note">미세먼지</div>
+        <div class="label" id="dustLabel">–</div>
+        <div class="sub" id="dustSub"></div>
+      </div>
+      <div class="tile" id="t-uv">
+        <div class="top-note">자외선지수</div>
+        <div class="label" id="uvLabel">–</div>
+        <div class="sub" id="uvSub"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="tile" id="t-next-term">
+        <div class="top-note">다음 절기</div>
+        <div class="big" id="termNum">–</div>
+        <div class="sub" id="termLabel"></div>
+      </div>
+      <div class="tile" id="t-next-holiday">
+        <div class="top-note">다음 명절</div>
+        <div class="big" id="holidayNum">–</div>
+        <div class="sub" id="holidayLabel"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="tile" id="t-year-progress">
+        <div class="top-note">올해 진행률</div>
+        <div class="label" id="yearProgressLabel">–</div>
+        <div class="sub" id="yearProgressSub"></div>
+        <div class="progress-track"><div class="progress-fill" id="yearProgressFill"></div></div>
+      </div>
+      <div class="tile" id="t-daylight">
+        <div class="top-note">낮 길이</div>
+        <div class="label" id="daylightLabel">–</div>
+        <div class="sub" id="daylightSub"></div>
+      </div>
+    </div>
+
+    <div class="tile" id="t-rain">
+      <div class="top-note">오늘 강수확률</div>
+      <div class="label" id="rainLabel">–</div>
+      <div class="sub" id="rainSub"></div>
+    </div>
+
+  </section>
+
+  <footer>실시간 날씨 · 매일 새로 갱신됩니다</footer>
+</main>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ============================================================
+     설정값 — 매직 넘버를 한 군데로 모음
+     ============================================================ */
+  const CONFIG = {
+    TRANSITION_DAYS: 6,           // 계절 전환 블렌딩 구간(±일)
+    GEO_TIMEOUT_MS: 4500,         // 브라우저 GPS 타임아웃
+    REVERSE_GEOCODE_TIMEOUT_MS: 4000,
+    IP_GEO_TIMEOUT_MS: 5000,
+    AIR_QUALITY_TIMEOUT_MS: 6000,
+    WEATHER_TIMEOUT_MS: 8000,
+    SUN_REFRESH_INTERVAL_MS: 60000,
+    DEFAULT_LOCATION: { lat: 37.5665, lon: 126.9780, city: '서울' }
+  };
+
+  /* ============================================================
+     공용 유틸
+     ============================================================ */
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+  const setText = (id, text) => { $(id).textContent = text; };
+
+  async function fetchJSON(url, timeoutMs){
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try{
+      const res = await fetch(url, { signal: ctrl.signal });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function showNotice(msg){
+    const n = $('notice');
+    n.textContent = msg;
+    n.classList.add('show');
+  }
+
+  /* ============================================================
+     날짜
+     ============================================================ */
+  const today = new Date();
+  const y = today.getFullYear(), m = today.getMonth() + 1, d = today.getDate();
+  const todayOnly = new Date(y, m - 1, d);
+  const todayStr = `${y}-${pad(m)}-${pad(d)}`; // Open-Meteo daily.time과 비교용
+
+  setText('dateSub', `${y}년 ${m}월 ${d}일 · ${['일','월','화','수','목','금','토'][today.getDay()]}요일`);
+
+  /* ============================================================
+     계절 팔레트 & 전환 블렌딩 (accent 색상 계산용)
+     ============================================================ */
+  const SEASON_ORDER = ['winter','spring','summer','fall'];
+  const PALETTES = {
+    winter:{ accent:'#8fc4e8', dim:'#2c4a6e', particle:'#f8fbfd' },
+    spring:{ accent:'#ff9fc4', dim:'#8a4a63', particle:'#ffcfe0' },
+    summer:{ accent:'#5fd3d0', dim:'#1f5a6b', particle:'#a6ece7' },
+    fall:  { accent:'#e08a3c', dim:'#6b3a1f', particle:'#e0a35f' }
+  };
+
+  function seasonOf(month){
+    if([12,1,2].includes(month)) return 'winter';
+    if([3,4,5].includes(month)) return 'spring';
+    if([6,7,8].includes(month)) return 'summer';
+    return 'fall';
+  }
+
+  function hexToRgb(hex){
+    const n = parseInt(hex.slice(1), 16);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255];
+  }
+  function lerpHex(aHex, bHex, t){
+    const a = hexToRgb(aHex), b = hexToRgb(bHex);
+    const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+
+  const currentSeason = seasonOf(m);
+
+  const seasonBoundaries = [
+    new Date(y-1,11,1), new Date(y,2,1), new Date(y,5,1),
+    new Date(y,8,1), new Date(y,11,1), new Date(y+1,2,1)
+  ];
+
+  function computeSeasonBlend(){
+    for(const boundary of seasonBoundaries){
+      const diff = (today - boundary) / 86400000;
+      if(Math.abs(diff) <= CONFIG.TRANSITION_DAYS){
+        const toSeason = seasonOf(boundary.getMonth() + 1);
+        const fromSeason = SEASON_ORDER[(SEASON_ORDER.indexOf(toSeason) + 3) % 4];
+        const t = Math.max(0, Math.min(1, (diff + CONFIG.TRANSITION_DAYS) / (CONFIG.TRANSITION_DAYS * 2)));
+        return { from: fromSeason, to: toSeason, t };
+      }
+    }
+    return null;
+  }
+  const seasonBlend = computeSeasonBlend();
+
+  function applyAccentColors(){
+    let accent, dim;
+    if(seasonBlend){
+      const A = PALETTES[seasonBlend.from], B = PALETTES[seasonBlend.to];
+      accent = lerpHex(A.accent, B.accent, seasonBlend.t);
+      dim = lerpHex(A.dim, B.dim, seasonBlend.t);
+    } else {
+      const P = PALETTES[currentSeason];
+      accent = P.accent; dim = P.dim;
+    }
+    document.documentElement.style.setProperty('--accent', accent);
+    document.documentElement.style.setProperty('--accent-dim', dim);
+  }
+  applyAccentColors();
+
+  /* ============================================================
+     24절기 (천문 근사식, 1900~2100년 범위에서 대체로 하루 이내 오차)
+     ============================================================ */
+  const TERM_NAMES = ['소한','대한','입춘','우수','경칩','춘분','청명','곡우','입하','소만','망종','하지',
+                       '소서','대서','입추','처서','백로','추분','한로','상강','입동','소설','대설','동지'];
+  const TERM_OFFSET_MINUTES = [0,21208,42467,63836,85337,107014,128867,150921,173149,195551,218072,240693,
+                                263343,285989,308563,331033,353350,375494,397447,419210,440795,462224,483532,504758];
+
+  function getTermDate(year, n){
+    const utcMs = 31556925974.7 * (year - 1900) + TERM_OFFSET_MINUTES[n] * 60000 + Date.UTC(1900,0,6,2,5,0);
+    const kst = new Date(utcMs + 9 * 3600 * 1000);
+    return new Date(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate());
+  }
+  function termsForYear(year){
+    return TERM_NAMES.map((name, n) => ({ name, date: getTermDate(year, n) }));
+  }
+
+  /* ============================================================
+     명절
+     ============================================================ */
+  const SEOLLAL_DATES = {2025:'01-29',2026:'02-17',2027:'02-06',2028:'01-27',2029:'02-13',2030:'02-03',
+                          2031:'01-23',2032:'02-11',2033:'01-31',2034:'02-19',2035:'02-08',2036:'01-28'};
+  const CHUSEOK_DATES  = {2025:'10-06',2026:'09-25',2027:'09-15',2028:'10-03',2029:'09-22',2030:'09-12',
+                           2031:'10-01',2032:'09-19',2033:'09-08',2034:'09-27',2035:'09-16',2036:'10-04'};
+  const FIXED_HOLIDAYS = [
+    {name:'신정', month:1, day:1},
+    {name:'발렌타인데이', month:2, day:14},
+    {name:'화이트데이', month:3, day:14},
+    {name:'어린이날', month:5, day:5},
+    {name:'할로윈', month:10, day:31},
+    {name:'크리스마스 이브', month:12, day:24},
+    {name:'크리스마스', month:12, day:25}
+  ];
+
+  function buildLunarHolidays(){
+    const list = [];
+    for(const [yr, md] of Object.entries(SEOLLAL_DATES)) list.push({ name:'설날', date:new Date(`${yr}-${md}`) });
+    for(const [yr, md] of Object.entries(CHUSEOK_DATES))  list.push({ name:'추석', date:new Date(`${yr}-${md}`) });
+    return list;
+  }
+  const lunarHolidays = buildLunarHolidays();
+
+  /* ============================================================
+     다음 절기 / 다음 명절 D-day
+     ============================================================ */
+  function setDday(numId, labelId, item){
+    if(!item) return;
+    const diffDays = Math.round((item.date - todayOnly) / 86400000);
+    setText(numId, diffDays === 0 ? '오늘' : ('D-' + diffDays));
+    setText(labelId, item.name);
+  }
+
+  function findNextTerm(){
+    const upcoming = [y, y+1].flatMap(termsForYear).filter(t => t.date >= todayOnly);
+    upcoming.sort((a, b) => a.date - b.date);
+    return upcoming[0];
+  }
+
+  function findNextHoliday(){
+    const fixedForYears = [y, y+1].flatMap(yr =>
+      FIXED_HOLIDAYS.map(h => ({ name: h.name, date: new Date(yr, h.month - 1, h.day) }))
+    );
+    const upcoming = [...lunarHolidays, ...fixedForYears].filter(h => h.date >= todayOnly);
+    upcoming.sort((a, b) => a.date - b.date);
+    return upcoming[0];
+  }
+
+  setDday('termNum', 'termLabel', findNextTerm());
+  setDday('holidayNum', 'holidayLabel', findNextHoliday());
+
+  /* ============================================================
+     올해 진행률 — API 없이 바로 계산
+     ============================================================ */
+  function applyYearProgress(){
+    const startOfYear = new Date(y, 0, 1);
+    const startOfNextYear = new Date(y + 1, 0, 1);
+    const totalDays = Math.round((startOfNextYear - startOfYear) / 86400000);
+    const dayOfYear = Math.round((todayOnly - startOfYear) / 86400000) + 1;
+    const percent = Math.round((dayOfYear / totalDays) * 100);
+
+    setText('yearProgressLabel', `${percent}%`);
+    setText('yearProgressSub', `${dayOfYear}/${totalDays}일 지남`);
+    $('yearProgressFill').style.width = percent + '%';
+  }
+  applyYearProgress();
+
+  /* ============================================================
+     배경 파티클 애니메이션
+     ============================================================ */
+  const Particles = (function(){
+    const canvas = $('particles');
+    const ctx = canvas.getContext('2d');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let W, H, parts = [];
+
+    function resize(){
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+
+    function pickParticleSeason(){
+      if(!seasonBlend) return currentSeason;
+      return Math.random() < seasonBlend.t ? seasonBlend.to : seasonBlend.from;
+    }
+
+    function shapeFor(season, r){
+      ctx.beginPath();
+      if(season === 'winter') ctx.arc(0, 0, r, 0, Math.PI * 2);
+      else if(season === 'spring') ctx.ellipse(0, 0, r * 1.6, r, 0, 0, Math.PI * 2);
+      else if(season === 'summer') ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
+      else ctx.ellipse(0, 0, r * 1.8, r * 1.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function make(n){
+      parts = Array.from({ length: n }, () => {
+        const season = pickParticleSeason();
+        return {
+          x: Math.random() * W, y: Math.random() * H, r: Math.random() * 2.4 + 0.8,
+          speed: Math.random() * 0.6 + 0.25, drift: Math.random() * 0.6 - 0.3,
+          rot: Math.random() * Math.PI * 2, rotSpeed: (Math.random() - 0.5) * 0.02,
+          opacity: Math.random() * 0.5 + 0.2, season, color: PALETTES[season].particle
+        };
+      });
+    }
+
+    function draw(){
+      ctx.clearRect(0, 0, W, H);
+      const fadeStart = H * (2 / 3);
+      for(const p of parts){
+        let alpha = p.opacity;
+        if(p.y > fadeStart){
+          const fadeT = Math.min(1, (p.y - fadeStart) / (H - fadeStart));
+          alpha = p.opacity * (1 - fadeT);
+        }
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        shapeFor(p.season, p.r);
+        ctx.restore();
+        p.y += p.speed;
+        p.x += Math.sin(p.y * 0.01) * p.drift * 0.5;
+        p.rot += p.rotSpeed;
+        if(p.y > H){ p.y = -6; p.x = Math.random() * W; }
+      }
+      ctx.globalAlpha = 1;
+      if(!reduceMotion) requestAnimationFrame(draw);
+    }
+
+    function start(){
+      resize();
+      make(Math.min(90, Math.floor(window.innerWidth / 12)));
+      window.addEventListener('resize', resize);
+      if(!reduceMotion) requestAnimationFrame(draw); else draw();
+    }
+
+    return { start };
+  })();
+  Particles.start();
+
+  /* ============================================================
+     위치 확인
+     ============================================================ */
+  function getBrowserLocation(){
+    return new Promise(resolve => {
+      if(!navigator.geolocation){ resolve(null); return; }
+      const timer = setTimeout(() => resolve(null), CONFIG.GEO_TIMEOUT_MS);
+      navigator.geolocation.getCurrentPosition(
+        pos => { clearTimeout(timer); resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
+        ()  => { clearTimeout(timer); resolve(null); },
+        { enableHighAccuracy: false, timeout: CONFIG.GEO_TIMEOUT_MS, maximumAge: 600000 }
+      );
+    });
+  }
+
+  async function reverseGeocode(lat, lon){
+    try{
+      const data = await fetchJSON(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ko`,
+        CONFIG.REVERSE_GEOCODE_TIMEOUT_MS
+      );
+      return data.city || data.locality || data.principalSubdivision || null;
+    }catch(e){ return null; }
+  }
+
+  async function getIpLocation(){
+    try{
+      const g = await fetchJSON('https://ipwho.is/', CONFIG.IP_GEO_TIMEOUT_MS);
+      if(g.success !== false && g.latitude && g.longitude){
+        return { lat: g.latitude, lon: g.longitude, city: g.city || g.region || null };
+      }
+    }catch(e){}
+    try{
+      const geo = await fetchJSON('https://ipapi.co/json/', CONFIG.IP_GEO_TIMEOUT_MS);
+      if(geo.latitude && geo.longitude) return { lat: geo.latitude, lon: geo.longitude, city: geo.city || geo.region || null };
+    }catch(e){}
+    return null;
+  }
+
+  async function resolveLocation(){
+    const gps = await getBrowserLocation();
+    if(gps){
+      const city = await reverseGeocode(gps.lat, gps.lon);
+      return { lat: gps.lat, lon: gps.lon, city: city || '내 위치', source: 'gps' };
+    }
+    const ip = await getIpLocation();
+    if(ip) return { lat: ip.lat, lon: ip.lon, city: ip.city || '내 위치', source: 'ip' };
+    return { ...CONFIG.DEFAULT_LOCATION, source: 'default' };
+  }
+
+  /* ============================================================
+     일몰 카드의 해 위치
+     ============================================================ */
+  let sunTimes = null;
+
+  function positionSun(){
+    if(!sunTimes) return;
+    const wrap = $('sunWrap');
+    const dot = $('sunDot');
+    const rect = wrap.getBoundingClientRect();
+    if(rect.width === 0) return;
+
+    const span = sunTimes.sunset - sunTimes.sunrise;
+    let t = span > 0 ? (new Date() - sunTimes.sunrise) / span : 0;
+    const isDaytime = t >= 0 && t <= 1;
+    t = Math.max(0, Math.min(1, t));
+
+    const rx = rect.width / 2 - 4;
+    const ry = rect.height - 3;
+    const angle = t * Math.PI;
+    const x = rect.width / 2 - rx * Math.cos(angle);
+    const yFromBottom = ry * Math.sin(angle);
+
+    dot.style.left = x + 'px';
+    dot.style.top = (rect.height - yFromBottom) + 'px';
+    dot.style.opacity = isDaytime ? '1' : '0.3';
+  }
+  window.addEventListener('resize', positionSun);
+
+  /* ============================================================
+     날씨 / 미세먼지 판정 테이블
+     ============================================================ */
+  const WEATHER_CODE_LABELS = {
+    0:['맑음','☀️'], 1:['대체로 맑음','🌤️'], 2:['구름 조금','⛅'], 3:['흐림','☁️'],
+    45:['안개','🌫️'], 48:['안개','🌫️'],
+    51:['이슬비','🌦️'], 53:['이슬비','🌦️'], 55:['이슬비','🌦️'],
+    61:['비','🌧️'], 63:['비','🌧️'], 65:['강한 비','🌧️'],
+    71:['눈','🌨️'], 73:['눈','🌨️'], 75:['많은 눈','❄️'], 77:['싸락눈','🌨️'],
+    80:['소나기','🌦️'], 81:['소나기','🌦️'], 82:['강한 소나기','⛈️'],
+    85:['눈 소나기','🌨️'], 86:['눈 소나기','🌨️'],
+    95:['뇌우','⛈️'], 96:['뇌우','⛈️'], 99:['뇌우','⛈️']
+  };
+
+  function outfitFor(temp){
+    if(temp === null || isNaN(temp)) return ['–',''];
+    if(temp <= -5) return ['롱패딩 필수','발끝까지 챙겨입기'];
+    if(temp <= 4)  return ['두꺼운 패딩','목도리·장갑 추천'];
+    if(temp <= 9)  return ['코트·니트','가벼운 목도리'];
+    if(temp <= 16) return ['자켓·가디건','아침저녁 겉옷'];
+    if(temp <= 22) return ['얇은 가디건','긴팔이면 충분'];
+    return ['반팔도 OK','햇빛 대비 필요'];
+  }
+  function dustGrade(pm25){
+    if(pm25 == null || isNaN(pm25)) return null;
+    if(pm25 <= 15) return '좋음';
+    if(pm25 <= 35) return '보통';
+    if(pm25 <= 75) return '나쁨';
+    return '매우나쁨';
+  }
+  function uvGrade(uv){
+    if(uv == null || isNaN(uv)) return null;
+    if(uv < 3)  return '낮음';
+    if(uv < 6)  return '보통';
+    if(uv < 8)  return '높음';
+    if(uv < 11) return '매우높음';
+    return '위험';
+  }
+  function rainText(prob){
+    if(prob >= 70) return '우산 꼭 챙기세요';
+    if(prob >= 40) return '우산 챙기는 게 좋아요';
+    if(prob >= 10) return '우산은 선택이에요';
+    return '우산 필요 없어요';
+  }
+  function formatDuration(totalMinutes){
+    const h = Math.floor(totalMinutes / 60), mm = totalMinutes % 60;
+    return `${h}시간 ${mm}분`;
+  }
+
+  /* ============================================================
+     미세먼지 카드 — 날씨 요청과 독립적으로 실행
+     ============================================================ */
+  async function loadAirQuality(loc){
+    try{
+      const data = await fetchJSON(
+        `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${loc.lat}&longitude=${loc.lon}&current=pm10,pm2_5&timezone=auto`,
+        CONFIG.AIR_QUALITY_TIMEOUT_MS
+      );
+      const pm25 = data.current && data.current.pm2_5;
+      const pm10 = data.current && data.current.pm10;
+      setText('dustLabel', dustGrade(pm25) || '정보 없음');
+      setText('dustSub', (pm25 != null && pm10 != null) ? `PM2.5 ${Math.round(pm25)} · PM10 ${Math.round(pm10)}` : '');
+    }catch(e){
+      setText('dustLabel', '정보 없음');
+      setText('dustSub', '');
+    }
+  }
+
+  /* ============================================================
+     날씨 카드 (메인)
+     ============================================================ */
+  function applyWeatherError(){
+    setText('wxCond', '불러오기 실패');
+    $('wxMeta').textContent = '';
+    $('wxMeta').appendChild($('retryBtn'));
+    $('retryBtn').classList.add('show');
+    showNotice('일시적으로 날씨 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
+  }
+
+  // daily 배열에서 "오늘"에 해당하는 인덱스를 날짜 문자열로 안전하게 찾음
+  // (past_days=1을 쓰면 배열 맨 앞이 어제가 되어 인덱스가 밀리기 때문)
+  function findTodayIndex(daily){
+    if(!daily.time) return 0;
+    const idx = daily.time.indexOf(todayStr);
+    return idx === -1 ? daily.time.length - 1 : idx;
+  }
+
+  function applySunset(daily, idx){
+    if(!daily.sunset || !daily.sunset[idx]) return;
+    const sunset = new Date(daily.sunset[idx]);
+    setText('sunsetLabel', `${pad(sunset.getHours())}:${pad(sunset.getMinutes())}`);
+    if(daily.sunrise && daily.sunrise[idx]){
+      sunTimes = { sunrise: new Date(daily.sunrise[idx]), sunset };
+      positionSun();
+      clearInterval(window._sunTimer);
+      window._sunTimer = setInterval(positionSun, CONFIG.SUN_REFRESH_INTERVAL_MS);
+    }
+  }
+
+  function applyUv(daily, idx){
+    const uv = daily.uv_index_max && daily.uv_index_max[idx];
+    if(uv == null) return;
+    setText('uvLabel', uvGrade(uv) || '–');
+    setText('uvSub', `지수 ${uv.toFixed(1)}`);
+  }
+
+  function applyRain(daily, idx){
+    const prob = daily.precipitation_probability_max && daily.precipitation_probability_max[idx];
+    if(prob == null) return;
+    setText('rainLabel', `${Math.round(prob)}%`);
+    setText('rainSub', rainText(prob));
+  }
+
+  // 오늘 낮 길이 + 어제 대비 변화 (past_days=1로 받아온 어제 일출·일몰 사용)
+  function applyDaylight(daily, idx){
+    if(!daily.sunrise || !daily.sunset || !daily.sunrise[idx] || !daily.sunset[idx]) return;
+    const sunriseToday = new Date(daily.sunrise[idx]);
+    const sunsetToday = new Date(daily.sunset[idx]);
+    const lengthToday = Math.round((sunsetToday - sunriseToday) / 60000);
+    setText('daylightLabel', formatDuration(lengthToday));
+
+    if(idx > 0 && daily.sunrise[idx - 1] && daily.sunset[idx - 1]){
+      const sunriseYesterday = new Date(daily.sunrise[idx - 1]);
+      const sunsetYesterday = new Date(daily.sunset[idx - 1]);
+      const lengthYesterday = Math.round((sunsetYesterday - sunriseYesterday) / 60000);
+      const diff = lengthToday - lengthYesterday;
+      if(diff > 0) setText('daylightSub', `어제보다 ${diff}분 길어짐`);
+      else if(diff < 0) setText('daylightSub', `어제보다 ${Math.abs(diff)}분 짧아짐`);
+      else setText('daylightSub', '어제와 같음');
+    } else {
+      setText('daylightSub', '');
+    }
+  }
+
+  async function loadWeather(){
+    setText('wxCond', '불러오는 중');
+    setText('wxMeta', '위치 확인 중');
+    $('retryBtn').classList.remove('show');
+    $('notice').classList.remove('show');
+
+    const loc = await resolveLocation();
+    setText('wxCity', loc.city);
+    if(loc.source === 'ip') showNotice('내 위치 접근이 제한되어 IP 기반 위치로 표시했어요.');
+    if(loc.source === 'default') showNotice('위치를 확인하지 못해 서울 날씨로 표시했어요.');
+
+    loadAirQuality(loc);
+
+    try{
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}` +
+        `&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m` +
+        `&daily=sunrise,sunset,uv_index_max,precipitation_probability_max` +
+        `&past_days=1&timezone=auto`; // past_days=1: 어제 일출·일몰도 같이 받아 낮 길이 비교에 사용
+      const data = await fetchJSON(url, CONFIG.WEATHER_TIMEOUT_MS);
+
+      const cur = data.current;
+      const temp = Math.round(cur.temperature_2m);
+      const [condText, icon] = WEATHER_CODE_LABELS[cur.weather_code] || ['알 수 없음', '—'];
+
+      setText('wxTemp', temp + '°');
+      setText('wxCond', condText);
+      $('wxIcon').innerHTML = `<span>${icon}</span>`;
+      $('wxMeta').innerHTML = '';
+      $('wxMeta').appendChild(document.createTextNode(`습도 ${cur.relative_humidity_2m}% · 바람 ${Math.round(cur.wind_speed_10m)}km/h`));
+      $('wxMeta').appendChild($('retryBtn'));
+
+      const [outfit, outfitSub] = outfitFor(temp);
+      setText('outfitLabel', outfit);
+      setText('outfitSub', outfitSub);
+
+      if(data.daily){
+        const idx = findTodayIndex(data.daily);
+        applySunset(data.daily, idx);
+        applyUv(data.daily, idx);
+        applyRain(data.daily, idx);
+        applyDaylight(data.daily, idx);
+      }
+    }catch(e){
+      applyWeatherError();
+    }
+  }
+
+  $('retryBtn').addEventListener('click', loadWeather);
+  loadWeather();
+
+})();
+</script>
+
+</body>
+</html>
